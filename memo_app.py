@@ -53,7 +53,7 @@ if "submitted_once" not in st.session_state:
 
 # Function to send data to the API and retrieve the response
 def fetch_data_from_api(payload):
-    api_url = "http://127.0.0.1:8000/memo_gen/company-llm-flow/"  # Replace with actual API URL
+    api_url = "https://1a42-106-51-85-102.ngrok-free.app/memo_gen/company-llm-flow/" 
     headers = {"Content-Type": "application/json"}
     try:
         response = requests.post(api_url, json=payload, headers=headers)
