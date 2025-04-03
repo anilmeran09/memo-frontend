@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import os
 import json
 import logging
 import base64
@@ -8,16 +7,15 @@ from io import BytesIO
 from PIL import Image
 
 # Backend API endpoint
+# API_URL = " https://8338-202-83-17-71.ngrok-free.app/memo_gen/industry_forecast/"
+API_URL = "https://secfilingextractor.polynomial.ai/poc2/memo_gen/industry_forecast/"
+# Load NACE codes from JSON file
 def get_nace_list():
     with open("nace_code.json", "r") as file:
         nace_list = json.load(file)
-    logging.info(type(list(nace_list.items())[0]))
-    return [f"{i[0]} : {i[1]}" for i in list(nace_list.items())]
+    return [f"{code} : {name}" for code, name in nace_list.items()]
 
-# API_URL = " https://8338-202-83-17-71.ngrok-free.app/memo_gen/industry_forecast/"
-API_URL = "https://secfilingextractor.polynomial.ai/poc2/memo_gen/industry_forecast/"
-
-# Function to fetch data
+# Function to fetch data from the backend
 def get_forecast(nace_code, country_name, forecast_years):
     payload = {
         "nace_code": nace_code,
@@ -26,16 +24,22 @@ def get_forecast(nace_code, country_name, forecast_years):
     }
     try:
         response = requests.post(API_URL, json=payload)
-        response.raise_for_status()
+        
+        if response.status_code == 404:
+            st.warning("⚠️ Data not found for the given parameters. Please try again.")
+            return {}  # Return empty data to prevent crashes
+        
+        response.raise_for_status()  # Raise an error for any 500+ status codes
         return response.json()
+
     except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching data: {e}")
+        st.error(f"❌ Error fetching data: {e}")
         return {}
 
 # Function to decode Base64 image
 def decode_base64_image(base64_string):
     if not base64_string:
-        return None  # Handle missing images
+        return None
     image_data = base64.b64decode(base64_string)
     return Image.open(BytesIO(image_data))
 
@@ -78,8 +82,8 @@ if st.session_state.page == "input":
             
             if not response:
                 st.warning("No data returned from API.")
-            elif "errors" in response:
-                st.error(response["errors"])
+            elif "error" in response:
+                st.error(response["error"])
             else:
                 st.session_state.response = response
                 st.session_state.page = "result"
@@ -119,11 +123,13 @@ elif st.session_state.page == "result":
             display_data("Market Size and Growth Projections", first_last_dict)
             
             # Decode and Display Base64 Image
-            image = decode_base64_image(image_base64)
+            image = None
+            if image_base64:
+                image = decode_base64_image(image_base64)
             if image:
                 st.image(image, caption="📊 Market Growth Chart", use_container_width=True)
             else:
-                st.error("⚠️ Image not found.")
+                st.error("Graph is not generated.")
 
         with col2:
             display_data("Market Drivers", response.get("market_drivers", []))
