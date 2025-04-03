@@ -14,7 +14,7 @@ def get_nace_list():
     logging.info(type(list(nace_list.items())[0]))
     return [f"{i[0]} : {i[1]}" for i in list(nace_list.items())]
 
-API_URL = "http://127.0.0.1:8000/memo_gen/industry_forecast/"
+API_URL = " https://8338-202-83-17-71.ngrok-free.app/memo_gen/industry_forecast/"
 
 # Function to fetch data
 def get_forecast(nace_code, country_name, forecast_years):
