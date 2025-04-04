@@ -7,31 +7,42 @@ from io import BytesIO
 from PIL import Image
 
 # Backend API endpoint
-# API_URL = " https://8338-202-83-17-71.ngrok-free.app/memo_gen/industry_forecast/"
+# API_URL = "http://127.0.0.1:8000/memo_gen/industry_forecast/"
 API_URL = "https://secfilingextractor.polynomial.ai/poc2/memo_gen/industry_forecast/"
+
 # Load NACE codes from JSON file
 def get_nace_list():
-    with open("nace_code.json", "r") as file:
+    with open("../testing_scripts/nace_code.json", "r") as file:
         nace_list = json.load(file)
     return [f"{code} : {name}" for code, name in nace_list.items()]
 
 # Function to fetch data from the backend
-def get_forecast(nace_code, country_name, forecast_years):
+def get_forecast(nace_code, country_name, forecast_years,llm_name):
     payload = {
         "nace_code": nace_code,
         "country_name": country_name,
-        "forecast_years": forecast_years
+        "forecast_years": forecast_years,
+        "llm_name": llm_name
     }
     try:
         response = requests.post(API_URL, json=payload)
         
-        if response.status_code == 404:
-            st.warning("⚠️ Data not found for the given parameters. Please try again.")
-            return {}  # Return empty data to prevent crashes
+        if not response.status_code == 200:
+            if response.status_code == 400:
+                error_response = response.json()
+                error_message = error_response.get("errors", "Invalid input parameters.")
+                logging.error(f"Error: {error_message}")
+                fields = ",".join([i for i in error_message.keys()])
+                st.error(f"❌ Invalid input parameters. Please check your inputs: {fields}")
+                return {}
+            elif response.status_code == 500:
+                error_data = response.json()
+                error_message = error_data.get("errors", "Unknown error occurred.")
+                st.error(f"❌ {error_message} from {llm_name} model.")
+                return {} 
         
-        response.raise_for_status()  # Raise an error for any 500+ status codes
+        response.raise_for_status()  
         return response.json()
-
     except requests.exceptions.RequestException as e:
         st.error(f"❌ Error fetching data: {e}")
         return {}
@@ -74,14 +85,15 @@ if st.session_state.page == "input":
 
     nace_code = st.selectbox("NACE Code", get_nace_list())
     country = st.text_input("Country Name")
-    forecast_years = st.number_input("Forecast Years", min_value=1, max_value=10, value=5, step=1)
+    forecast_years = st.number_input("Forecast Years", step=1)
+    option = ["gemini", "chatgpt"]
+    llm_name = st.selectbox("Choose LLM",option, index=0)
 
     if st.button("Generate Dashboard"):
         with st.spinner("Fetching forecast data..."):
-            response = get_forecast(nace_code, country, forecast_years)
-            
+            response = get_forecast(nace_code, country, forecast_years, llm_name)
             if not response:
-                st.warning("No data returned from API.")
+                st.warning("No Data Found.")
             elif "error" in response:
                 st.error(response["error"])
             else:
@@ -133,14 +145,17 @@ elif st.session_state.page == "result":
 
         with col2:
             display_data("Market Drivers", response.get("market_drivers", []))
+            display_data("Emerging Market Trends", response.get("emerging_market_trends", []))
+
 
     # Display Other Sections
     col3, col4 = st.columns(2)
     with col3:
-        display_data("Emerging Market Trends", response.get("emerging_market_trends", []))
-    with col4:
+        # display_data("Emerging Market Trends", response.get("emerging_market_trends", []))
         display_data("Spending Figures", response.get("spending_figures", {}))
-    display_data("Market Entry Barriers", response.get("market_entry_barriers", {}))
+    with col4:
+        # display_data("Spending Figures", response.get("spending_figures", {}))
+        display_data("Market Entry Barriers", response.get("market_entry_barriers", {}))
 
     # Back to Input Page
     if st.button("🔄 Back to Input Page"):
