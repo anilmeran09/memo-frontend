@@ -12,7 +12,7 @@ API_URL = "https://secfilingextractor.polynomial.ai/poc2/memo_gen/industry_forec
 
 # Load NACE codes from JSON file
 def get_nace_list():
-    with open("../testing_scripts/nace_code.json", "r") as file:
+    with open("nace_code.json", "r") as file:
         nace_list = json.load(file)
     return [f"{code} : {name}" for code, name in nace_list.items()]
 
