@@ -173,7 +173,8 @@ elif st.session_state.page == "result":
             
             # Decode and Display Base64 Image
             image = None
-
+            if image_base64:
+                image = decode_base64_image(image_base64)
             if image:
                 st.image(image, caption="📊 Market Growth Chart", use_container_width=True)
                 st.markdown("### 📊 Forecast Table")
@@ -183,7 +184,7 @@ elif st.session_state.page == "result":
             if df is not None:
                 st.dataframe(df, use_container_width=True)
             else:
-                st.error('Data not found to create table!')
+                st.warning('Data not found to create table!')
 
             display_data("Spending Figures", response.get("spending_figures", {}))
 
