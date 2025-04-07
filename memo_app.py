@@ -1,13 +1,13 @@
 import streamlit as st
 import requests
 import json
+import pandas as pd 
 import logging
 import base64
 from io import BytesIO
 from PIL import Image
 
 # Backend API endpoint
-# API_URL = "http://127.0.0.1:8000/memo_gen/industry_forecast/"
 API_URL = "https://secfilingextractor.polynomial.ai/poc2/memo_gen/industry_forecast/"
 
 # Load NACE codes from JSON file
@@ -115,8 +115,45 @@ elif st.session_state.page == "result":
     st.write(f"**Industry:** {industry_name}  |  **Country:** {country_name}")
 
     data_set = response.get("market_size_and_growth_projections")
-    
+
     if data_set:
+        # table_data = None
+        # table_keys = list(data_set.keys())
+        # for key in table_keys:
+        #     if forecast_years == len(data_set[key]):
+        #         table_data = data_set[key]
+        
+        # df = pd.DataFrame(table_data)
+
+        forecast_key = None
+        static_info = {}
+
+        for k, v in data_set.items():
+            if isinstance(v, dict) and all(isinstance(i, dict) for i in v.values()):
+                forecast_key = k  # This is the forecast block
+            else:
+                static_info[k] = v  # This is the static info
+
+        # Now build the table from the forecast block
+        table_data = []
+        if forecast_key:
+            forecast_data = data_set[forecast_key]
+            for year, year_data in forecast_data.items():
+                row = {'Year': year}
+                # Clean markdown-style keys like **...**
+                for metric, value in year_data.items():
+                    clean_key = metric.replace("**", "").strip()
+                    row[clean_key] = value
+                # Add static info to every row
+                row.update(static_info)
+                table_data.append(row)
+        
+
+        # Convert to DataFrame
+        df = pd.DataFrame(table_data)
+
+
+
         if len(data_set) > 2:
             first_key, first_value = list(data_set.items())[0]
             last_key, last_value = list(data_set.items())[1]  # Corrected last element extraction
@@ -130,7 +167,7 @@ elif st.session_state.page == "result":
                 first_key: first_value
             }
 
-        col1, col2 = st.columns([2, 3])  # More space for the image on the left
+        col1, col2 = st.columns(2)  # More space for the image on the left
         with col1:
             display_data("Market Size and Growth Projections", first_last_dict)
             
@@ -140,22 +177,32 @@ elif st.session_state.page == "result":
                 image = decode_base64_image(image_base64)
             if image:
                 st.image(image, caption="📊 Market Growth Chart", use_container_width=True)
+                st.markdown("### 📊 Forecast Table")
+                if df is not None:
+                    st.dataframe(df, use_container_width=True)
+                else:
+                    st.warning('Data not found to create table!')
             else:
                 st.error("Graph is not generated.")
+            display_data("Spending Figures", response.get("spending_figures", {}))
+
 
         with col2:
             display_data("Market Drivers", response.get("market_drivers", []))
             display_data("Emerging Market Trends", response.get("emerging_market_trends", []))
+            display_data("Market Entry Barriers", response.get("market_entry_barriers", {}))
 
-
-    # Display Other Sections
-    col3, col4 = st.columns(2)
-    with col3:
-        # display_data("Emerging Market Trends", response.get("emerging_market_trends", []))
-        display_data("Spending Figures", response.get("spending_figures", {}))
-    with col4:
-        # display_data("Spending Figures", response.get("spending_figures", {}))
-        display_data("Market Entry Barriers", response.get("market_entry_barriers", {}))
+    # # Display Other Sections
+    # col3, col4 = st.columns(2)
+    # with col3:
+    #     # display_data("Emerging Market Trends", response.get("emerging_market_trends", []))
+    #     # display_data("Spending Figures", response.get("spending_figures", {}))
+    #     st.write('hey')
+    # with col4:
+    #     # display_data("Spending Figures", response.get("spending_figures", {}))
+    #     # display_data("Market Entry Barriers", response.get("market_entry_barriers", {}))
+    #     st.write('Hey')
+    #     pass
 
     # Back to Input Page
     if st.button("🔄 Back to Input Page"):
